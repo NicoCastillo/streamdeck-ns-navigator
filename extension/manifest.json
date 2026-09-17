@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "NetSuite Navigator Bridge",
+  "version": "0.1.0",
+  "description": "Sends NetSuite related-record links to the Stream Deck plugin for one-press navigation",
+  "permissions": ["tabs", "scripting", "activeTab"],
+  "host_permissions": ["https://*.netsuite.com/*", "https://*.app.netsuite.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.netsuite.com/app/*", "https://*.app.netsuite.com/app/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["btn-jump.png"],
+      "matches": ["https://*.netsuite.com/*", "https://*.app.netsuite.com/*"]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "streamdeck-ns-navigator",
+  "version": "0.1.0",
+  "description": "Stream Deck plugin that shows related record jump keys for the current NetSuite transaction",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "rolldown -c rolldown.config.ts",
+    "watch": "rolldown -c rolldown.config.ts -w",
+    "link": "streamdeck link com.nico.netsuite.navigator.sdPlugin"
+  },
+  "dependencies": {
+    "@elgato/streamdeck": "^2.1.2",
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "@elgato/cli": "^1.9.0",
+    "@types/ws": "^8.5.0",
+    "rolldown": "^1.0.0-rc.6",
+    "typescript": "^5.4.0"
+  }
+}

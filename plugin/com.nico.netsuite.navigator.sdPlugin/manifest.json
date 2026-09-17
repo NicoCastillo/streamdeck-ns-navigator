@@ -1,0 +1,38 @@
+{
+  "Name": "NetSuite Navigator",
+  "Version": "0.1.0",
+  "Author": "Nico",
+  "UUID": "com.nico.netsuite.navigator",
+  "Description": "Stream Deck keys that jump to related records on the current NetSuite transaction — Customer, Vendor, originating PO, linked Invoice, and more.",
+  "Category": "NetSuite",
+  "CategoryIcon": "imgs/plugin-icon",
+  "Icon": "imgs/plugin-icon",
+  "CodePath": "bin/plugin.js",
+  "SDKVersion": 3,
+  "Software": {
+    "MinimumVersion": "6.9"
+  },
+  "Nodejs": {
+    "Version": "20",
+    "Debug": "enabled"
+  },
+  "Actions": [
+    {
+      "Name": "NS Jump Slot",
+      "UUID": "com.nico.netsuite.navigator.nsjump",
+      "Icon": "imgs/action-icon",
+      "Tooltip": "A slot that fills with a related-record link from the current NetSuite transaction. Press to navigate there.",
+      "SupportedInMultiActions": false,
+      "States": [
+        {
+          "Image": "imgs/action-icon",
+          "Title": ""
+        }
+      ]
+    }
+  ],
+  "OS": [
+    { "Platform": "mac", "MinimumVersion": "10.15" },
+    { "Platform": "windows", "MinimumVersion": "10" }
+  ]
+}
