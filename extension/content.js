@@ -32,7 +32,7 @@ function loadImg(url) {
 
 loadImg(chrome.runtime.getURL('btn-jump.png')).then(img => { imgJump = img; });
 
-function generateImage(fieldLabel, recordName) {
+function generateImage(fieldLabel, recordName, amount) {
   const SIZE = 144;
   const MAX_LINES = 2;
   const canvas = document.createElement('canvas');
@@ -60,6 +60,10 @@ function generateImage(fieldLabel, recordName) {
     ctx.fillText(truncate(ctx, fieldLabel, 136), SIZE / 2, 30);
   }
 
+  const hasAmount = amount && amount.length > 0;
+  const zoneTop = fieldLabel ? 48 : 0;
+  const zoneBot = hasAmount ? SIZE - 46 : SIZE;
+
   let fontSize = 22;
   let lines;
   do {
@@ -78,10 +82,14 @@ function generateImage(fieldLabel, recordName) {
   ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
   const lineH = fontSize + 6;
   const blockH = lines.length * lineH;
-  const zoneTop = fieldLabel ? 48 : 0;
-  const zoneBot = SIZE;
   const nameTop = zoneTop + (zoneBot - zoneTop - blockH) / 2;
   lines.forEach((line, i) => ctx.fillText(line, SIZE / 2, nameTop + i * lineH + lineH / 2));
+
+  if (hasAmount) {
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
+    ctx.fillText(truncate(ctx, amount, 136), SIZE / 2, SIZE - 32);
+  }
 
   return canvas.toDataURL('image/png');
 }
@@ -162,11 +170,17 @@ function scrapeLinks() {
     let recordName = '';
     let fieldLabel = '';
 
+    let amount = '';
+
     if (row?.id?.startsWith('linksrow')) {
       const type = cells[1]?.textContent.trim() ?? '';
-      const number = cells[2]?.textContent.trim() ?? '';
+      const number = (cells[2]?.textContent.trim() ?? '').replace(/(\D+)0+(\d+)$/, '$1$2');
       recordName = number || a.textContent.trim();
       fieldLabel = type;
+      for (let c = cells.length - 1; c >= 3; c--) {
+        const t = cells[c]?.textContent.trim() ?? '';
+        if (/^[\d,]+\.\d{2}$/.test(t) && t !== '0.00') { amount = '$' + t; break; }
+      }
     } else {
       recordName = a.textContent.trim();
       const wrapper = a.closest('.uir-field-wrapper');
@@ -181,7 +195,7 @@ function scrapeLinks() {
     results.push({
       label: fieldLabel ? `${fieldLabel}: ${recordName}` : recordName,
       url: href,
-      image: generateImage(fieldLabel, recordName),
+      image: generateImage(fieldLabel, recordName, amount),
     });
   });
 
