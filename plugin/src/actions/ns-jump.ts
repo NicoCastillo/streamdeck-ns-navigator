@@ -10,6 +10,7 @@ import { BridgeLink, BridgeServer } from "../bridge";
 
 const slots = new Map<string, BridgeLink | null>();
 const keyRefs = new Map<string, KeyAction>();
+let lastLinks: BridgeLink[] = [];
 
 function isKeyAction(action: unknown): action is KeyAction {
   return typeof action === "object" && action !== null && "coordinates" in action;
@@ -24,13 +25,24 @@ function sortedKeys(): KeyAction[] {
 }
 
 async function distributeLinks(links: BridgeLink[]) {
+  lastLinks = links;
   const keys = sortedKeys();
+  console.log(`[NsJump] distributeLinks: ${links.length} links, ${keys.length} keys`);
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i];
     const link = links[i] ?? null;
     slots.set(key.id, link);
-    await key.setTitle("");
-    await key.setImage(link?.image ?? undefined);
+    try {
+      if (link) {
+        await key.setTitle("");
+        if (link.image) await key.setImage(link.image);
+      } else {
+        await key.setTitle("");
+        await key.setImage(undefined);
+      }
+    } catch (e) {
+      console.error(`[NsJump] failed to update key ${i}:`, e);
+    }
   }
 }
 
@@ -39,7 +51,11 @@ export class NsJump extends SingletonAction {
   constructor(private bridge: BridgeServer) {
     super();
     bridge.on("message", (msg) => {
-      if (msg.type === "links") distributeLinks(msg.links);
+      if (msg.type === "links") {
+        distributeLinks(msg.links).catch((e) =>
+          console.error("[NsJump] distributeLinks error:", e)
+        );
+      }
     });
   }
 
@@ -47,7 +63,13 @@ export class NsJump extends SingletonAction {
     if (!isKeyAction(ev.action)) return;
     keyRefs.set(ev.action.id, ev.action);
     slots.set(ev.action.id, null);
+    console.log(`[NsJump] onWillAppear: ${ev.action.id} (total keys: ${keyRefs.size})`);
     await ev.action.setTitle("");
+    if (lastLinks.length > 0) {
+      distributeLinks(lastLinks).catch((e) =>
+        console.error("[NsJump] re-distribute error:", e)
+      );
+    }
   }
 
   onWillDisappear(ev: WillDisappearEvent) {

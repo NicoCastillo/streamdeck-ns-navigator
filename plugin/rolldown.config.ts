@@ -4,7 +4,7 @@ import url from "node:url";
 import { defineConfig } from "rolldown";
 
 const isWatching = !!process.env.ROLLUP_WATCH;
-const sdPluginFolder = "com.nico.netsuite.txnbuttons.sdPlugin";
+const sdPluginFolder = "com.nico.netsuite.navigator.sdPlugin";
 
 export default defineConfig({
   input: "src/plugin.ts",
@@ -34,7 +34,7 @@ export default defineConfig({
       buildEnd() {
         if (isWatching) {
           exec(
-            "streamdeck restart com.nico.netsuite.txnbuttons",
+            "streamdeck restart com.nico.netsuite.navigator",
             (error, stdout, stderr) => {
               if (stdout) console.log(stdout.trim());
               if (stderr) console.error(stderr.trim());

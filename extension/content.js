@@ -4,12 +4,10 @@
 const BRIDGE_PORT = 9999;
 const SCAN_DELAY_MS = 800;
 
-// Containers whose links we never want (sublists, nav bar, breadcrumbs)
+// Containers whose links we never want
 const EXCLUDED_SELECTORS = [
-  '#div__bodytab',       // sublist tabs
   '.ns-breadcrumb',      // breadcrumb nav
-  '#ns-header',          // top navigation bar
-  '.uir-list-headerrow', // column headers inside sublists
+  '.uir-list-headerrow', // column header rows inside sublists (not data rows)
 ];
 
 function getRecordType() {
@@ -36,6 +34,7 @@ loadImg(chrome.runtime.getURL('btn-jump.png')).then(img => { imgJump = img; });
 
 function generateImage(fieldLabel, recordName) {
   const SIZE = 144;
+  const MAX_LINES = 2;
   const canvas = document.createElement('canvas');
   canvas.width = SIZE;
   canvas.height = SIZE;
@@ -48,21 +47,41 @@ function generateImage(fieldLabel, recordName) {
     ctx.fillRect(0, 0, SIZE, SIZE);
   }
 
-  // Field label (small, lighter)
   ctx.shadowColor = 'rgba(0,0,0,0.5)';
   ctx.shadowBlur = 2;
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.font = '18px Arial, Helvetica, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(truncate(ctx, fieldLabel, 128), SIZE / 2, SIZE / 2 - 22);
 
-  // Record name (larger, white)
+  const maxW = 128;
+
+  if (fieldLabel) {
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.font = 'bold 20px Arial, Helvetica, sans-serif';
+    ctx.fillText(truncate(ctx, fieldLabel, 136), SIZE / 2, 30);
+  }
+
+  let fontSize = 22;
+  let lines;
+  do {
+    ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
+    lines = wrapText(ctx, recordName, maxW);
+    if (lines.length <= MAX_LINES) break;
+    fontSize -= 2;
+  } while (fontSize >= 16);
+
+  if (lines.length > MAX_LINES) {
+    lines = lines.slice(0, MAX_LINES);
+    lines[MAX_LINES - 1] = truncate(ctx, lines[MAX_LINES - 1], maxW);
+  }
+
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 24px Arial, Helvetica, sans-serif';
-  const lines = wrapText(ctx, recordName, 120, 28);
-  const startY = SIZE / 2 + (fieldLabel ? 8 : 0) - ((lines.length - 1) * 28) / 2;
-  lines.forEach((line, i) => ctx.fillText(line, SIZE / 2, startY + i * 28));
+  ctx.font = `bold ${fontSize}px Arial, Helvetica, sans-serif`;
+  const lineH = fontSize + 6;
+  const blockH = lines.length * lineH;
+  const zoneTop = fieldLabel ? 48 : 0;
+  const zoneBot = SIZE;
+  const nameTop = zoneTop + (zoneBot - zoneTop - blockH) / 2;
+  lines.forEach((line, i) => ctx.fillText(line, SIZE / 2, nameTop + i * lineH + lineH / 2));
 
   return canvas.toDataURL('image/png');
 }
@@ -74,7 +93,7 @@ function truncate(ctx, text, maxW) {
   return t + '…';
 }
 
-function wrapText(ctx, text, maxW, lineH) {
+function wrapText(ctx, text, maxW) {
   const words = text.split(' ');
   const lines = [];
   let cur = '';
@@ -104,34 +123,60 @@ function isInsideExcluded(el, excluded) {
   return false;
 }
 
+// Only these URL path segments are meaningful related records
+const ALLOWED_PATHS = [
+  '/app/accounting/transactions/',
+  '/app/common/entity/',
+  '/app/accounting/project/',
+  '/app/accounting/othertrans/',
+];
+
+function isAllowedHref(href) {
+  return ALLOWED_PATHS.some(p => href.includes(p));
+}
+
 function scrapeLinks() {
   const currentId = getRecordId();
   const excluded = buildExcludedSet();
   const seen = new Set();
   const results = [];
 
-  document.querySelectorAll('a[href*=".nl?id="]').forEach(a => {
+  document.querySelectorAll('a[href*=".nl"][href*="id="]').forEach(a => {
     if (isInsideExcluded(a, excluded)) return;
 
     let href;
     try { href = new URL(a.href, location.origin).href; } catch { return; }
 
+    if (!isAllowedHref(href)) return;
+
     const urlId = new URLSearchParams(new URL(href).search).get('id');
     if (!urlId || urlId === currentId) return;
-    if (seen.has(href)) return;
-    seen.add(href);
 
-    const recordName = a.textContent.trim();
-    if (!recordName) return;
+    const canonical = href.split('?')[0] + '?id=' + urlId;
+    if (seen.has(canonical)) return;
+    seen.add(canonical);
 
-    // Walk up to find the nearest <tr> and pull the first cell as the field label
     const row = a.closest('tr');
-    const firstCell = row ? [...row.querySelectorAll('td')][0] : null;
-    const rawLabel = firstCell?.textContent.trim() ?? '';
-    // Avoid using the record name itself or a cell that is just the link wrapper
-    const fieldLabel = (rawLabel && rawLabel !== recordName && rawLabel.length < 40)
-      ? rawLabel
-      : '';
+    const cells = row ? [...row.querySelectorAll('td')] : [];
+
+    let recordName = '';
+    let fieldLabel = '';
+
+    if (row?.id?.startsWith('linksrow')) {
+      const type = cells[1]?.textContent.trim() ?? '';
+      const number = cells[2]?.textContent.trim() ?? '';
+      recordName = number || a.textContent.trim();
+      fieldLabel = type;
+    } else {
+      recordName = a.textContent.trim();
+      const wrapper = a.closest('.uir-field-wrapper');
+      const rawLabel = wrapper?.dataset.nspsLabel ?? '';
+      fieldLabel = (rawLabel && rawLabel !== recordName && rawLabel.length < 40)
+        ? rawLabel
+        : '';
+    }
+
+    if (!recordName) return;
 
     results.push({
       label: fieldLabel ? `${fieldLabel}: ${recordName}` : recordName,
@@ -156,6 +201,7 @@ function triggerScan() {
     const recordType = getRecordType();
     if (!recordType) return;
     const links = scrapeLinks();
+    console.log('[NS Navigator] scraped links:', links.map(l => l.label));
     sendToBackground({
       type: 'links',
       recordType,
@@ -177,4 +223,8 @@ urlObserver.observe(document.body, { childList: true, subtree: true });
 
 const bodyObserver = new MutationObserver(triggerScan);
 const bodyArea = document.querySelector('#div__bodytab') || document.body;
-bodyObserver.observe(bodyArea, { childList: true, subtree: false });
+bodyObserver.observe(bodyArea, { childList: true, subtree: true });
+
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === 'rescan') triggerScan();
+});

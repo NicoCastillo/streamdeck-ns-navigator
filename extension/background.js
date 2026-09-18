@@ -9,7 +9,13 @@ let activeTabId = null;
 function connect() {
   ws = new WebSocket(PLUGIN_WS_URL);
 
-  ws.onopen = () => console.log('[NS Navigator] connected to plugin');
+  ws.onopen = () => {
+    console.log('[NS Navigator] connected to plugin');
+    // Ask the active NS tab to re-scan now that we have a WS connection
+    if (activeTabId != null) {
+      chrome.tabs.sendMessage(activeTabId, { type: 'rescan' }).catch(() => {});
+    }
+  };
   ws.onclose = () => {
     console.log('[NS Navigator] disconnected, retrying...');
     setTimeout(connect, RECONNECT_DELAY_MS);
@@ -21,7 +27,7 @@ function connect() {
     try {
       const msg = JSON.parse(event.data);
       if (msg.type === 'navigate' && activeTabId != null) {
-        chrome.tabs.update(activeTabId, { url: msg.url });
+        chrome.tabs.create({ url: msg.url, openerTabId: activeTabId });
       }
     } catch {}
   };
@@ -39,8 +45,12 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
 chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg.type === 'links') {
     activeTabId = sender.tab?.id ?? activeTabId;
+    console.log('[NS Navigator] received links from content script:', msg.links.length, 'ws state:', ws?.readyState);
     if (ws?.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(msg));
+      console.log('[NS Navigator] forwarded to plugin');
+    } else {
+      console.warn('[NS Navigator] WS not open, message dropped');
     }
   }
 });

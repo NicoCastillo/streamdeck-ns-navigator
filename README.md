@@ -2,19 +2,21 @@
 
 Stream Deck plugin that shows one-press jump keys for every related record on the NetSuite transaction you're viewing.
 
-Navigate to an Invoice and your deck populates with keys for the Customer, originating Sales Order, linked Payments, and anything else the record links to. Press a key — Chrome navigates there instantly.
+Navigate to an Invoice and your deck populates with keys for the Customer, originating Sales Order, linked Payments, and anything else the record links to. Press a key — Chrome opens the record in a new tab.
+
+![Stream Deck showing related records for a NetSuite Invoice](docs/screenshot.png)
 
 ## How it works
 
 ```
 Chrome Extension (content.js)
-  → scans the transaction header for links to other NS records
+  → scans the transaction header and Related Records subtab for links to other NS records
   → sends list to background.js via chrome.runtime.sendMessage
 
 Chrome Extension (background.js)
   → maintains WebSocket to ws://127.0.0.1:9999
   → forwards link lists to Stream Deck plugin
-  → on navigate command: calls chrome.tabs.update with the target URL
+  → on navigate command: opens the target URL in a new tab
 
 Stream Deck Plugin (Node.js)
   → hosts WS server on port 9999

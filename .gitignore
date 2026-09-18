@@ -1,5 +1,7 @@
 .DS_Store
 node_modules/
 plugin/node_modules/
-plugin/com.nico.netsuite.txnbuttons.sdPlugin/bin/
-plugin/com.nico.netsuite.txnbuttons.sdPlugin/logs/
+plugin/com.nico.netsuite.navigator.sdPlugin/bin/
+plugin/com.nico.netsuite.navigator.sdPlugin/logs/
+plugin/com.nico.netsuite.txnbuttons.sdPlugin/
+.idea/
